@@ -59,6 +59,7 @@ public class RobotController : MonoBehaviour
         for(int i = 0; i < Joints.Length; i++)
         {
             Joints[i].GetComponent<SimpleRobotJoint>().setpoint = (float) angles[i]/360f;
+            startOffsets[i] = Joints[i].GetComponent<SimpleRobotJoint>().StartOffset;
         }
         Grips[0].GetComponent<SimpleRobotJoint>().setpoint = grip;
         Grips[1].GetComponent<SimpleRobotJoint>().setpoint = grip;
