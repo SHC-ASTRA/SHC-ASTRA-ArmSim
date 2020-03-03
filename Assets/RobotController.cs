@@ -31,8 +31,6 @@ public class RobotController : MonoBehaviour
     [Range(-1.0f, 1.0f)]
     public float grip;
 
-    private Color[] colorSequence = { Color.white, Color.gray};
-
     private NelderMeadSimplex solver;
 
     void Start()
@@ -40,10 +38,16 @@ public class RobotController : MonoBehaviour
         angles = new double[Joints.Length];
         angleMins = new float[Joints.Length];
         angleMaxes = new float[Joints.Length];
+        rotAxes = new Vector3[Joints.Length];
+        transAxes = new Vector3[Joints.Length];
+        startOffsets = new Vector3[Joints.Length];
         for (int i = 0; i < Joints.Length; i++)
         {
             angleMins[i] = Joints[i].GetComponent<SimpleRobotJoint>().minVal * 360;
             angleMaxes[i] = Joints[i].GetComponent<SimpleRobotJoint>().maxVal * 360;
+            rotAxes[i] = Joints[i].GetComponent<SimpleRobotJoint>().rotateAxis;
+            transAxes[i] = Joints[i].GetComponent<SimpleRobotJoint>().rotateAxis;
+            startOffsets[i] = Joints[i].GetComponent<SimpleRobotJoint>().StartOffset;
         }
 
         solver = new NelderMeadSimplex(convergenceTolerance, MaxIterations);
@@ -59,14 +63,32 @@ public class RobotController : MonoBehaviour
         Grips[0].GetComponent<SimpleRobotJoint>().setpoint = grip;
         Grips[1].GetComponent<SimpleRobotJoint>().setpoint = grip;
 
-        Vector3 finalPoint = ForwardKinematicsDraw(angles);
-        Debug.DrawLine(finalPoint - Vector3.left * 0.1f, finalPoint + Vector3.left * 0.1f, Color.red);
-        Debug.DrawLine(finalPoint - Vector3.forward * 0.1f, finalPoint + Vector3.forward * 0.1f, Color.blue);
-        Debug.DrawLine(finalPoint - Vector3.up * 0.1f, finalPoint + Vector3.up * 0.1f, Color.green);
+        Vector3 finalPoint;
+        Quaternion finalRot;
+
+        ForwardKinematicsDraw(angles, Joints[0].transform.position, rotAxes, transAxes, startOffsets, out finalPoint, out finalRot);
+        Debug.DrawLine(finalPoint - finalRot*Vector3.left * 0.1f, finalPoint + finalRot * Vector3.left * 0.1f, Color.red);
+        Debug.DrawLine(finalPoint - finalRot * Vector3.forward * 0.1f, finalPoint + finalRot * Vector3.forward * 0.1f, Color.blue);
+        Debug.DrawLine(finalPoint - finalRot * Vector3.up * 0.1f, finalPoint + finalRot * Vector3.up * 0.1f, Color.green);
 
 
-        var anglesNative = new NativeArray<double>(angles.Length, Allocator.Temp);
+        var anglesNative = new NativeArray<double>(angles.Length, Allocator.TempJob);
         anglesNative.CopyFrom(angles);
+
+        var angleMaxesNative = new NativeArray<float>(angleMaxes.Length, Allocator.TempJob);
+        angleMaxesNative.CopyFrom(angleMaxes);
+
+        var angleMinsNative = new NativeArray<float>(angleMins.Length, Allocator.TempJob);
+        angleMinsNative.CopyFrom(angleMins);
+
+        var rotAxesNative = new NativeArray<Vector3>(rotAxes.Length, Allocator.TempJob);
+        rotAxesNative.CopyFrom(rotAxes);
+
+        var transAxesNative = new NativeArray<Vector3>(transAxes.Length, Allocator.TempJob);
+        transAxesNative.CopyFrom(transAxes);
+
+        var startOffsetsNative = new NativeArray<Vector3>(startOffsets.Length, Allocator.TempJob);
+        startOffsetsNative.CopyFrom(startOffsets);
 
         //Debug.Log(result.FunctionInfoAtMinimum.Value);
 
@@ -75,7 +97,15 @@ public class RobotController : MonoBehaviour
             targetPos = targetTransform.position,
             targetRot = targetTransform.rotation,
             jobAngles = anglesNative,
-            robotController = this
+            jobAngleMins = angleMinsNative,
+            jobAngleMaxes = angleMaxesNative,
+            jobConvergenceTolerance = convergenceTolerance,
+            jobDistanceThreshold = DistanceThreshold,
+            jobMaxIterations = MaxIterations,
+            jobBasePos = Joints[0].transform.position,
+            jobRotAxes = rotAxesNative,
+            jobTransAxes = transAxesNative,
+            jobStartOffsets = startOffsetsNative
         };
 
         var ikJobHandle = ikJob.Schedule();
@@ -87,8 +117,12 @@ public class RobotController : MonoBehaviour
         anglesNative.CopyTo(angles);
 
         anglesNative.Dispose();
-        
-        
+        angleMaxesNative.Dispose();
+        angleMinsNative.Dispose();
+        rotAxesNative.Dispose();
+        transAxesNative.Dispose();
+        startOffsetsNative.Dispose();
+
 
         //for (int i = 0; i < 100; i++)
         //{
@@ -96,66 +130,51 @@ public class RobotController : MonoBehaviour
         //}
 
         //Debug.Log("Current Error: " + ErrorFunction(targetTransform.position, targetTransform.rotation, angles));
-        
+
 
     }
 
-    void ForwardKinematics(double[] angles, out Vector3 finalPoint, out Quaternion finalRotation)
+    static void ForwardKinematics(double[] deltas, Vector3 basePos, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets, out Vector3 finalPoint, out Quaternion finalRotation)
     {
-        Vector3 prevPoint = Joints[0].transform.position;
+        Vector3 prevPoint = basePos;
         Quaternion rotation = Quaternion.identity;
-        for (int i = 1; i < Joints.Length; i++)
+        for (int i = 1; i < deltas.Length; i++)
         {
             // Rotates around a new axis
-            rotation *= Quaternion.AngleAxis((float)angles[i - 1], Joints[i - 1].GetComponent<SimpleRobotJoint>().rotateAxis);
-            Vector3 nextPoint = prevPoint + rotation * Joints[i].GetComponent<SimpleRobotJoint>().StartOffset;
+            rotation *= Quaternion.AngleAxis((float)deltas[i - 1], rotAxes[i - 1]);
+            Vector3 nextPoint = prevPoint + rotation * startOffsets[i];// + rotation * transAxes[i] * ((float)deltas[i]);
 
             prevPoint = nextPoint;
         }
 
         finalPoint = prevPoint;
-        rotation *= Quaternion.AngleAxis((float)angles[Joints.Length - 1], Joints[Joints.Length - 1].GetComponent<SimpleRobotJoint>().rotateAxis);
+        rotation *= Quaternion.AngleAxis((float)deltas[deltas.Length - 1], rotAxes[deltas.Length - 1]);
         finalRotation = rotation;
     }
 
-    
-    public Vector3 ForwardKinematicsDraw(double[] angles)
+    static void ForwardKinematicsDraw(double[] deltas, Vector3 basePos, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets, out Vector3 finalPoint, out Quaternion finalRotation)
     {
-        Vector3 prevPoint = Joints[0].transform.position;
+        Color[] colorSequence = { Color.white, Color.gray };
+
+        Vector3 prevPoint = basePos;
         Quaternion rotation = Quaternion.identity;
-        for (int i = 1; i < Joints.Length; i++)
+        for (int i = 1; i < deltas.Length; i++)
         {
             // Rotates around a new axis
-            rotation *= Quaternion.AngleAxis((float)angles[i - 1], Joints[i - 1].GetComponent<SimpleRobotJoint>().rotateAxis);
-            Vector3 nextPoint = prevPoint + rotation * Joints[i].GetComponent<SimpleRobotJoint>().StartOffset;
+            rotation *= Quaternion.AngleAxis((float)deltas[i - 1], rotAxes[i - 1]);
+            Vector3 nextPoint = prevPoint + rotation * startOffsets[i];// + rotation * transAxes[i] * ((float)deltas[i]);
 
-            Debug.DrawLine(prevPoint, nextPoint, colorSequence[i%colorSequence.Length]);
+            Debug.DrawLine(prevPoint, nextPoint, colorSequence[i % colorSequence.Length]);
 
             prevPoint = nextPoint;
         }
-        return prevPoint;
+
+        finalPoint = prevPoint;
+        rotation *= Quaternion.AngleAxis((float)deltas[deltas.Length - 1], rotAxes[deltas.Length - 1]);
+        finalRotation = rotation;
     }
 
-    public float DistanceFromTarget(Vector3 target, double[] angles)
-    {
-        Vector3 point;
-        Quaternion rotation;
-        ForwardKinematics(angles, out point, out rotation);
-        return Vector3.Distance(point, target);
-    }
-
-    public float RotationFromTarget(Quaternion target, double[] angles)
-    {
-        Vector3 point;
-        Quaternion rotation;
-        ForwardKinematics(angles, out point, out rotation);
-        return Mathf.Abs
-        (
-             Quaternion.Angle(rotation, target) / 180f
-        );
-    }
-
-    public void DistanceAndRotationFromTarget(Vector3 target, Quaternion targetRot, double[] angles, float[] minAngles, float[] maxAngles, out float distance, out float rotationDist)
+    static void DistanceAndRotationFromTarget(Vector3 target, Quaternion targetRot, double[] angles, float[] minAngles, float[] maxAngles, Vector3 basePos, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets, out float distance, out float rotationDist)
     {
         float penalty = 0;
         for (int i = 0; i < angles.Length; i++)
@@ -168,7 +187,7 @@ public class RobotController : MonoBehaviour
         }
         Vector3 point;
         Quaternion rotation;
-        ForwardKinematics(angles, out point, out rotation);
+        ForwardKinematics(angles, basePos, rotAxes, transAxes, startOffsets, out point, out rotation);
 
         distance = Vector3.Distance(point, target) + penalty;
         rotationDist = Mathf.Abs
@@ -178,12 +197,12 @@ public class RobotController : MonoBehaviour
     }
 
 
-    public static float ErrorFunction(RobotController robotController, Vector3 target, Quaternion targetRot, double[] angles, float[] minAngles, float[] maxAngles)
+    public static float ErrorFunction(Vector3 target, Quaternion targetRot, double[] angles, float[] minAngles, float[] maxAngles, Vector3 basePos, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets)
     {
         float distancePenalty; 
         float rotationPenalty;
 
-        robotController.DistanceAndRotationFromTarget(target, targetRot, angles, minAngles, maxAngles, out distancePenalty, out rotationPenalty);
+        DistanceAndRotationFromTarget(target, targetRot, angles, minAngles, maxAngles, basePos, rotAxes, transAxes, startOffsets, out distancePenalty, out rotationPenalty);
 
         return
             distancePenalty / 2f *1f+
@@ -237,22 +256,23 @@ public struct IKJob : IJob
     public Vector3 targetPos;
     public Quaternion targetRot;
     public NativeArray<double> jobAngles;
-    public RobotController robotController;
+    public NativeArray<float> jobAngleMins;
+    public NativeArray<float> jobAngleMaxes;
+    public float jobConvergenceTolerance;
+    public float jobDistanceThreshold;
+    public int jobMaxIterations;
+    public Vector3 jobBasePos;
+    public NativeArray<Vector3> jobRotAxes;
+    public NativeArray<Vector3> jobTransAxes;
+    public NativeArray<Vector3> jobStartOffsets;
 
     public void Execute()
     {
-
-        float[] jobAngleMins = robotController.angleMins;
-        float[] jobAngleMaxes = robotController.angleMaxes;
-        float jobConvergenceTolerance = robotController.convergenceTolerance;
-        float jobDistanceThreshold = robotController.DistanceThreshold;
-        int jobMaxIterations = robotController.MaxIterations;
-
         NelderMeadSimplex solver = new NelderMeadSimplex(jobConvergenceTolerance, jobMaxIterations);
 
         var V = Vector<double>.Build;
         var meJob = this;
-        var f1 = new Func<Vector<double>, double>(angleVec => RobotController.ErrorFunction(meJob.robotController, meJob.targetPos, meJob.targetRot, angleVec.ToArray(), jobAngleMins, jobAngleMaxes));
+        var f1 = new Func<Vector<double>, double>(angleVec => RobotController.ErrorFunction(meJob.targetPos, meJob.targetRot, angleVec.ToArray(), meJob.jobAngleMins.ToArray(), meJob.jobAngleMaxes.ToArray(), meJob.jobBasePos, meJob.jobRotAxes.ToArray(), meJob.jobTransAxes.ToArray(), meJob.jobStartOffsets.ToArray()));
         var obj = ObjectiveFunction.Value(f1);
 
         MinimizationResult result;
@@ -264,7 +284,7 @@ public struct IKJob : IJob
             {
                 if (result.FunctionInfoAtMinimum.Value > jobDistanceThreshold)
                 {
-                    f1 = new Func<Vector<double>, double>(angleVec => RobotController.ErrorFunction(meJob.robotController, meJob.targetPos, meJob.targetRot, angleVec.ToArray(), jobAngleMins, jobAngleMaxes));
+                    f1 = new Func<Vector<double>, double>(angleVec => RobotController.ErrorFunction( meJob.targetPos, meJob.targetRot, angleVec.ToArray(), meJob.jobAngleMins.ToArray(), meJob.jobAngleMaxes.ToArray(), meJob.jobBasePos, meJob.jobRotAxes.ToArray(), meJob.jobTransAxes.ToArray(), meJob.jobStartOffsets.ToArray()));
                     obj = ObjectiveFunction.Value(f1);
                     MinimizationResult result2;
                     try
