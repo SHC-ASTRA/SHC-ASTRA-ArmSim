@@ -7,8 +7,8 @@ public class SimpleRobotJoint : MonoBehaviour
     public float setpoint;
     public float maxVal;
     public float minVal;
-    public float maxValSpeed;
-    public float ValAccel;
+    public float maxValSpeed = 0.1f;
+    public float ValAccel = 0.5f;
     public float tolerance = 0.001f;
 
     private Quaternion initialRotation;
@@ -28,6 +28,16 @@ public class SimpleRobotJoint : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        if(rotateAxis != rotateAxis.normalized)
+        {
+            Debug.LogWarning("Rotate Axis is not unit vector", this);
+        }
+
+        if (translateAxis != translateAxis.normalized)
+        {
+            Debug.LogWarning("Rotate Axis is not unit vector", this);
+        }
+
         initialRotation = transform.localRotation;
         initialTranslation = transform.localPosition;
 

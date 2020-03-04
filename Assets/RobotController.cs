@@ -67,7 +67,7 @@ public class RobotController : MonoBehaviour
             angleMins[i] = Joints[i].GetComponent<SimpleRobotJoint>().minVal * 360;
             angleMaxes[i] = Joints[i].GetComponent<SimpleRobotJoint>().maxVal * 360;
             rotAxes[i] = Joints[i].GetComponent<SimpleRobotJoint>().rotateAxis;
-            transAxes[i] = Joints[i].GetComponent<SimpleRobotJoint>().rotateAxis;
+            transAxes[i] = Joints[i].GetComponent<SimpleRobotJoint>().translateAxis;
             startOffsets[i] = Joints[i].GetComponent<SimpleRobotJoint>().StartOffset;
         }
 
@@ -178,7 +178,7 @@ public class RobotController : MonoBehaviour
         {
             // Rotates around a new axis
             rotation *= Quaternion.AngleAxis((float)deltas[i - 1], rotAxes[i - 1]);
-            Vector3 nextPoint = prevPoint + rotation * startOffsets[i];// + rotation * transAxes[i] * ((float)deltas[i]);
+            Vector3 nextPoint = prevPoint + rotation * startOffsets[i] + rotation * transAxes[i] * ((float)deltas[i]/360f);
 
             prevPoint = nextPoint;
         }
@@ -198,7 +198,7 @@ public class RobotController : MonoBehaviour
         {
             // Rotates around a new axis
             rotation *= Quaternion.AngleAxis((float)deltas[i - 1], rotAxes[i - 1]);
-            Vector3 nextPoint = prevPoint + rotation * startOffsets[i];// + rotation * transAxes[i] * ((float)deltas[i]);
+            Vector3 nextPoint = prevPoint + rotation * startOffsets[i] + rotation * transAxes[i] * ((float)deltas[i]/360f);
 
             Debug.DrawLine(prevPoint, nextPoint, colorSequence[i % colorSequence.Length]);
 
