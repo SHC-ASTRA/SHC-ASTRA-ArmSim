@@ -11,8 +11,6 @@ public class SimpleRobotJoint : MonoBehaviour
     public float ValAccel = 0.5f;
     public float tolerance = 0.001f;
 
-    private Quaternion initialRotation;
-    private Vector3 initialTranslation;
     public float target;
     public float currVal;
     public float brakeDist;
@@ -24,6 +22,10 @@ public class SimpleRobotJoint : MonoBehaviour
 
     [HideInInspector]
     public Vector3 StartOffset;
+    [HideInInspector]
+    public Quaternion initialRotation;
+    [HideInInspector]
+    public Vector3 initialTranslation;
 
     // Start is called before the first frame update
     void Start()
@@ -36,6 +38,11 @@ public class SimpleRobotJoint : MonoBehaviour
         if (translateAxis != translateAxis.normalized)
         {
             Debug.LogWarning("Rotate Axis is not unit vector", this);
+        }
+
+        if( rotateAxis != Vector3.zero && translateAxis != Vector3.zero)
+        {
+            Debug.LogWarning("Rotate and translate axes are both non-zero", this);
         }
 
         initialRotation = transform.localRotation;

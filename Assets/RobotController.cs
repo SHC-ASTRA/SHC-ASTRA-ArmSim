@@ -90,7 +90,7 @@ public class RobotController : MonoBehaviour
         Vector3 finalPoint;
         Quaternion finalRot;
 
-        ForwardKinematicsDraw(angles, Joints[0].transform.position, rotAxes, transAxes, startOffsets, out finalPoint, out finalRot);
+        ForwardKinematicsDraw(angles, Joints[0].transform.position, Joints[0].transform.rotation, rotAxes, transAxes, startOffsets, out finalPoint, out finalRot);
         Debug.DrawLine(finalPoint - finalRot*Vector3.left * 0.1f, finalPoint + finalRot * Vector3.left * 0.1f, Color.red);
         Debug.DrawLine(finalPoint - finalRot * Vector3.forward * 0.1f, finalPoint + finalRot * Vector3.forward * 0.1f, Color.blue);
         Debug.DrawLine(finalPoint - finalRot * Vector3.up * 0.1f, finalPoint + finalRot * Vector3.up * 0.1f, Color.green);
@@ -145,6 +145,7 @@ public class RobotController : MonoBehaviour
                 jobDistanceThreshold = DistanceThreshold,
                 jobMaxIterations = MaxIterations,
                 jobBasePos = Joints[0].transform.position,
+                jobBaseRot = Joints[0].transform.rotation,
                 jobRotAxes = rotAxesNative,
                 jobTransAxes = transAxesNative,
                 jobStartOffsets = startOffsetsNative
@@ -170,10 +171,10 @@ public class RobotController : MonoBehaviour
 
     }
 
-    static void ForwardKinematics(double[] deltas, Vector3 basePos, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets, out Vector3 finalPoint, out Quaternion finalRotation)
+    static void ForwardKinematics(double[] deltas, Vector3 basePos, Quaternion baseRot, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets, out Vector3 finalPoint, out Quaternion finalRotation)
     {
         Vector3 prevPoint = basePos;
-        Quaternion rotation = Quaternion.identity;
+        Quaternion rotation = baseRot;
         for (int i = 1; i < deltas.Length; i++)
         {
             // Rotates around a new axis
@@ -188,12 +189,12 @@ public class RobotController : MonoBehaviour
         finalRotation = rotation;
     }
 
-    static void ForwardKinematicsDraw(double[] deltas, Vector3 basePos, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets, out Vector3 finalPoint, out Quaternion finalRotation)
+    static void ForwardKinematicsDraw(double[] deltas, Vector3 basePos, Quaternion baseRot, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets, out Vector3 finalPoint, out Quaternion finalRotation)
     {
         Color[] colorSequence = { Color.white, Color.gray };
 
         Vector3 prevPoint = basePos;
-        Quaternion rotation = Quaternion.identity;
+        Quaternion rotation = baseRot;
         for (int i = 1; i < deltas.Length; i++)
         {
             // Rotates around a new axis
@@ -210,7 +211,7 @@ public class RobotController : MonoBehaviour
         finalRotation = rotation;
     }
 
-    static void DistanceAndRotationFromTarget(Vector3 target, Quaternion targetRot, double[] angles, float[] minAngles, float[] maxAngles, Vector3 basePos, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets, out float distance, out float rotationDist)
+    static void DistanceAndRotationFromTarget(Vector3 target, Quaternion targetRot, double[] angles, float[] minAngles, float[] maxAngles, Vector3 basePos, Quaternion baseRot, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets, out float distance, out float rotationDist)
     {
         float penalty = 0;
         for (int i = 0; i < angles.Length; i++)
@@ -223,7 +224,7 @@ public class RobotController : MonoBehaviour
         }
         Vector3 point;
         Quaternion rotation;
-        ForwardKinematics(angles, basePos, rotAxes, transAxes, startOffsets, out point, out rotation);
+        ForwardKinematics(angles, basePos, baseRot, rotAxes, transAxes, startOffsets, out point, out rotation);
 
         distance = Vector3.Distance(point, target) + penalty;
         rotationDist = Mathf.Abs
@@ -233,12 +234,12 @@ public class RobotController : MonoBehaviour
     }
 
 
-    public static float ErrorFunction(Vector3 target, Quaternion targetRot, double[] angles, float[] minAngles, float[] maxAngles, Vector3 basePos, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets)
+    public static float ErrorFunction(Vector3 target, Quaternion targetRot, double[] angles, float[] minAngles, float[] maxAngles, Vector3 basePos, Quaternion baseRot, Vector3[] rotAxes, Vector3[] transAxes, Vector3[] startOffsets)
     {
         float distancePenalty; 
         float rotationPenalty;
 
-        DistanceAndRotationFromTarget(target, targetRot, angles, minAngles, maxAngles, basePos, rotAxes, transAxes, startOffsets, out distancePenalty, out rotationPenalty);
+        DistanceAndRotationFromTarget(target, targetRot, angles, minAngles, maxAngles, basePos, baseRot, rotAxes, transAxes, startOffsets, out distancePenalty, out rotationPenalty);
 
         return
             distancePenalty / 2f *1f+
@@ -298,6 +299,7 @@ public struct IKJob : IJob
     public float jobDistanceThreshold;
     public int jobMaxIterations;
     public Vector3 jobBasePos;
+    public Quaternion jobBaseRot;
     public NativeArray<Vector3> jobRotAxes;
     public NativeArray<Vector3> jobTransAxes;
     public NativeArray<Vector3> jobStartOffsets;
@@ -308,7 +310,7 @@ public struct IKJob : IJob
 
         var V = Vector<double>.Build;
         var meJob = this;
-        var f1 = new Func<Vector<double>, double>(angleVec => RobotController.ErrorFunction(meJob.targetPos, meJob.targetRot, angleVec.ToArray(), meJob.jobAngleMins.ToArray(), meJob.jobAngleMaxes.ToArray(), meJob.jobBasePos, meJob.jobRotAxes.ToArray(), meJob.jobTransAxes.ToArray(), meJob.jobStartOffsets.ToArray()));
+        var f1 = new Func<Vector<double>, double>(angleVec => RobotController.ErrorFunction(meJob.targetPos, meJob.targetRot, angleVec.ToArray(), meJob.jobAngleMins.ToArray(), meJob.jobAngleMaxes.ToArray(), meJob.jobBasePos, meJob.jobBaseRot, meJob.jobRotAxes.ToArray(), meJob.jobTransAxes.ToArray(), meJob.jobStartOffsets.ToArray()));
         var obj = ObjectiveFunction.Value(f1);
 
         MinimizationResult result;
@@ -320,12 +322,12 @@ public struct IKJob : IJob
             {
                 if (result.FunctionInfoAtMinimum.Value > jobDistanceThreshold)
                 {
-                    f1 = new Func<Vector<double>, double>(angleVec => RobotController.ErrorFunction( meJob.targetPos, meJob.targetRot, angleVec.ToArray(), meJob.jobAngleMins.ToArray(), meJob.jobAngleMaxes.ToArray(), meJob.jobBasePos, meJob.jobRotAxes.ToArray(), meJob.jobTransAxes.ToArray(), meJob.jobStartOffsets.ToArray()));
+                    f1 = new Func<Vector<double>, double>(angleVec => RobotController.ErrorFunction( meJob.targetPos, meJob.targetRot, angleVec.ToArray(), meJob.jobAngleMins.ToArray(), meJob.jobAngleMaxes.ToArray(), meJob.jobBasePos, meJob.jobBaseRot, meJob.jobRotAxes.ToArray(), meJob.jobTransAxes.ToArray(), meJob.jobStartOffsets.ToArray()));
                     obj = ObjectiveFunction.Value(f1);
                     MinimizationResult result2;
                     try
                     {
-                        result2 = solver.FindMinimum(obj, V.DenseOfArray(jobAngles.ToArray()) + (V.Random(6) * (i + 1) * 15));
+                        result2 = solver.FindMinimum(obj, V.DenseOfArray(jobAngles.ToArray()) + (V.Random(jobAngles.Length) * (i + 1) * 30));
                         if (result2 != null && result2.FunctionInfoAtMinimum.Value < result.FunctionInfoAtMinimum.Value)
                         {
                             result = result2;
