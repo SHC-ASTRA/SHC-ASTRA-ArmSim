@@ -33,6 +33,27 @@ public class RobotController : MonoBehaviour
 
     private NelderMeadSimplex solver;
 
+    private JobHandle ikJobHandle;
+    private NativeArray<double> anglesNative;
+    private NativeArray<float> angleMaxesNative;
+    private NativeArray<float> angleMinsNative;
+    private NativeArray<Vector3> rotAxesNative;
+    private NativeArray<Vector3> transAxesNative;
+    private NativeArray<Vector3> startOffsetsNative;
+    private bool runOnce = false;
+
+    void OnApplicationQuit()
+    {
+        ikJobHandle.Complete();
+
+        anglesNative.Dispose();
+        angleMaxesNative.Dispose();
+        angleMinsNative.Dispose();
+        rotAxesNative.Dispose();
+        transAxesNative.Dispose();
+        startOffsetsNative.Dispose();
+    }
+
     void Start()
     {
         angles = new double[Joints.Length];
@@ -51,6 +72,8 @@ public class RobotController : MonoBehaviour
         }
 
         solver = new NelderMeadSimplex(convergenceTolerance, MaxIterations);
+
+        ikJobHandle = new JobHandle();
     }
 
     // Update is called once per frame
@@ -72,57 +95,69 @@ public class RobotController : MonoBehaviour
         Debug.DrawLine(finalPoint - finalRot * Vector3.forward * 0.1f, finalPoint + finalRot * Vector3.forward * 0.1f, Color.blue);
         Debug.DrawLine(finalPoint - finalRot * Vector3.up * 0.1f, finalPoint + finalRot * Vector3.up * 0.1f, Color.green);
 
-
-        var anglesNative = new NativeArray<double>(angles.Length, Allocator.TempJob);
-        anglesNative.CopyFrom(angles);
-
-        var angleMaxesNative = new NativeArray<float>(angleMaxes.Length, Allocator.TempJob);
-        angleMaxesNative.CopyFrom(angleMaxes);
-
-        var angleMinsNative = new NativeArray<float>(angleMins.Length, Allocator.TempJob);
-        angleMinsNative.CopyFrom(angleMins);
-
-        var rotAxesNative = new NativeArray<Vector3>(rotAxes.Length, Allocator.TempJob);
-        rotAxesNative.CopyFrom(rotAxes);
-
-        var transAxesNative = new NativeArray<Vector3>(transAxes.Length, Allocator.TempJob);
-        transAxesNative.CopyFrom(transAxes);
-
-        var startOffsetsNative = new NativeArray<Vector3>(startOffsets.Length, Allocator.TempJob);
-        startOffsetsNative.CopyFrom(startOffsets);
-
-        //Debug.Log(result.FunctionInfoAtMinimum.Value);
-
-        IKJob ikJob = new IKJob
+        if(!runOnce || (runOnce && ikJobHandle.IsCompleted))
         {
-            targetPos = targetTransform.position,
-            targetRot = targetTransform.rotation,
-            jobAngles = anglesNative,
-            jobAngleMins = angleMinsNative,
-            jobAngleMaxes = angleMaxesNative,
-            jobConvergenceTolerance = convergenceTolerance,
-            jobDistanceThreshold = DistanceThreshold,
-            jobMaxIterations = MaxIterations,
-            jobBasePos = Joints[0].transform.position,
-            jobRotAxes = rotAxesNative,
-            jobTransAxes = transAxesNative,
-            jobStartOffsets = startOffsetsNative
-        };
+            ikJobHandle.Complete();
 
-        var ikJobHandle = ikJob.Schedule();
+            if (runOnce && ikJobHandle.IsCompleted)
+            {
+                anglesNative.CopyTo(angles);
 
-        JobHandle.ScheduleBatchedJobs();
+                anglesNative.Dispose();
+                angleMaxesNative.Dispose();
+                angleMinsNative.Dispose();
+                rotAxesNative.Dispose();
+                transAxesNative.Dispose();
+                startOffsetsNative.Dispose();
+            }
 
-        ikJobHandle.Complete();
+            runOnce = true;
 
-        anglesNative.CopyTo(angles);
 
-        anglesNative.Dispose();
-        angleMaxesNative.Dispose();
-        angleMinsNative.Dispose();
-        rotAxesNative.Dispose();
-        transAxesNative.Dispose();
-        startOffsetsNative.Dispose();
+            anglesNative = new NativeArray<double>(angles.Length, Allocator.TempJob);
+            anglesNative.CopyFrom(angles);
+
+            angleMaxesNative = new NativeArray<float>(angleMaxes.Length, Allocator.TempJob);
+            angleMaxesNative.CopyFrom(angleMaxes);
+
+            angleMinsNative = new NativeArray<float>(angleMins.Length, Allocator.TempJob);
+            angleMinsNative.CopyFrom(angleMins);
+
+            rotAxesNative = new NativeArray<Vector3>(rotAxes.Length, Allocator.TempJob);
+            rotAxesNative.CopyFrom(rotAxes);
+
+            transAxesNative = new NativeArray<Vector3>(transAxes.Length, Allocator.TempJob);
+            transAxesNative.CopyFrom(transAxes);
+
+            startOffsetsNative = new NativeArray<Vector3>(startOffsets.Length, Allocator.TempJob);
+            startOffsetsNative.CopyFrom(startOffsets);
+
+            //Debug.Log(result.FunctionInfoAtMinimum.Value);
+
+            IKJob ikJob = new IKJob
+            {
+                targetPos = targetTransform.position,
+                targetRot = targetTransform.rotation,
+                jobAngles = anglesNative,
+                jobAngleMins = angleMinsNative,
+                jobAngleMaxes = angleMaxesNative,
+                jobConvergenceTolerance = convergenceTolerance,
+                jobDistanceThreshold = DistanceThreshold,
+                jobMaxIterations = MaxIterations,
+                jobBasePos = Joints[0].transform.position,
+                jobRotAxes = rotAxesNative,
+                jobTransAxes = transAxesNative,
+                jobStartOffsets = startOffsetsNative
+            };
+
+            ikJobHandle = ikJob.Schedule();
+
+            JobHandle.ScheduleBatchedJobs();
+        }
+
+       
+
+
 
 
         //for (int i = 0; i < 100; i++)
@@ -281,7 +316,7 @@ public struct IKJob : IJob
         {
             result = solver.FindMinimum(obj, V.DenseOfArray(jobAngles.ToArray()));
 
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 5; i++)
             {
                 if (result.FunctionInfoAtMinimum.Value > jobDistanceThreshold)
                 {
@@ -290,7 +325,7 @@ public struct IKJob : IJob
                     MinimizationResult result2;
                     try
                     {
-                        result2 = solver.FindMinimum(obj, V.DenseOfArray(jobAngles.ToArray()) + (V.Random(6) * (i + 1) * 20));
+                        result2 = solver.FindMinimum(obj, V.DenseOfArray(jobAngles.ToArray()) + (V.Random(6) * (i + 1) * 15));
                         if (result2 != null && result2.FunctionInfoAtMinimum.Value < result.FunctionInfoAtMinimum.Value)
                         {
                             result = result2;
@@ -298,7 +333,7 @@ public struct IKJob : IJob
                     }
                     catch (MaximumIterationsException e)
                     {
-                        Debug.Log(e);
+                        //Debug.Log(e);
                     }
                 }
                 else
@@ -311,7 +346,7 @@ public struct IKJob : IJob
         }
         catch (MaximumIterationsException e)
         {
-            Debug.Log(e);
+            //Debug.Log(e);
         }
 
     }
