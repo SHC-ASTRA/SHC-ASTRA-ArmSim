@@ -2,20 +2,11 @@
 using System.Collections;
 using System.Collections.Generic;
 
-[System.Serializable]
-public class AxleInfo
-{
-    public WheelCollider leftWheel;
-    public WheelCollider rightWheel;
-    public bool motor;
-    public bool steering;
-}
-
 public class RoverDrive : MonoBehaviour
 {
-    public List<AxleInfo> axleInfos;
+    public List<WheelCollider> Wheels;
     public float maxMotorTorque;
-    public float maxSteeringAngle;
+    public float steerTorqueFraction;
 
     // finds the corresponding visual wheel
     // correctly applies the transform
@@ -39,22 +30,13 @@ public class RoverDrive : MonoBehaviour
     public void FixedUpdate()
     {
         float motor = maxMotorTorque * Input.GetAxis("Vertical");
-        float steering = maxSteeringAngle * Input.GetAxis("Horizontal");
+        float steering = steerTorqueFraction * Input.GetAxis("Horizontal");
 
-        foreach (AxleInfo axleInfo in axleInfos)
+        foreach (WheelCollider wheel in Wheels)
         {
-            if (axleInfo.steering)
-            {
-                axleInfo.leftWheel.steerAngle = steering;
-                axleInfo.rightWheel.steerAngle = steering;
-            }
-            if (axleInfo.motor)
-            {
-                axleInfo.leftWheel.motorTorque = motor;
-                axleInfo.rightWheel.motorTorque = motor;
-            }
-            ApplyLocalPositionToVisuals(axleInfo.leftWheel);
-            ApplyLocalPositionToVisuals(axleInfo.rightWheel);
+            wheel.motorTorque = motor + (wheel.transform.localPosition.x > 0 ? -1 : 1) * steering;
+            
+            ApplyLocalPositionToVisuals(wheel);
         }
     }
 }
