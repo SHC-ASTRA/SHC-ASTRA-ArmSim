@@ -126,8 +126,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73570fd6c1d7646489f7e708023799b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotateAxis: {x: 1, y: 0, z: 0}
   translateAxis: {x: 0, y: 0, z: 0}
   setpoint: 0
@@ -560,8 +560,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73570fd6c1d7646489f7e708023799b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotateAxis: {x: 0, y: 0, z: 0}
   translateAxis: {x: 0, y: 0, z: 0}
   setpoint: 0
@@ -799,8 +799,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73570fd6c1d7646489f7e708023799b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotateAxis: {x: 0, y: 1, z: 0}
   translateAxis: {x: 0, y: 0, z: 0}
   setpoint: 0
@@ -862,8 +862,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73570fd6c1d7646489f7e708023799b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotateAxis: {x: 0, y: 0, z: 1}
   translateAxis: {x: 0, y: 0, z: 0}
   setpoint: 0
@@ -1038,8 +1038,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 74d9078f0f1617e429278121459e12b1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   Joints:
   - {fileID: 571123111271312483}
   - {fileID: 571123111653437447}
@@ -1108,8 +1108,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73570fd6c1d7646489f7e708023799b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotateAxis: {x: 0, y: 1, z: 0}
   translateAxis: {x: 0, y: 0, z: 0}
   setpoint: 0
@@ -1295,8 +1295,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73570fd6c1d7646489f7e708023799b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotateAxis: {x: 1, y: 0, z: 0}
   translateAxis: {x: 0, y: 0, z: 0}
   setpoint: 0
@@ -1450,8 +1450,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73570fd6c1d7646489f7e708023799b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotateAxis: {x: 0, y: 0, z: 0}
   translateAxis: {x: 1, y: 0, z: 0}
   setpoint: 0
@@ -1751,8 +1751,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73570fd6c1d7646489f7e708023799b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotateAxis: {x: 1, y: 0, z: 0}
   translateAxis: {x: 0, y: 0, z: 0}
   setpoint: 0
@@ -1813,8 +1813,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 73570fd6c1d7646489f7e708023799b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotateAxis: {x: 0, y: 0, z: 0}
   translateAxis: {x: -1, y: 0, z: 0}
   setpoint: 0
@@ -1940,8 +1940,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8df66186d79d72046885cb090df668b9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   Wheels:
   - {fileID: 571123112744724036}
   - {fileID: 571123112189523402}
