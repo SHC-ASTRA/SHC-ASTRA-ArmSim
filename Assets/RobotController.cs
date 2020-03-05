@@ -103,6 +103,11 @@ public class RobotController : MonoBehaviour
             {
                 anglesNative.CopyTo(angles);
 
+                for(int i = 0; i < angles.Length; i++)
+                {
+                    angles[i] = (double)Mathf.Clamp((float)angles[i], angleMins[i], angleMaxes[i]); 
+                }
+
                 anglesNative.Dispose();
                 angleMaxesNative.Dispose();
                 angleMinsNative.Dispose();
@@ -220,7 +225,7 @@ public class RobotController : MonoBehaviour
             {
                 penalty += 1;
             }
-            angles[i] = Mathf.Clamp((float)angles[i], minAngles[i], maxAngles[i]);
+            angles[i] = (double) Mathf.Clamp((float)angles[i], minAngles[i], maxAngles[i]);
         }
         Vector3 point;
         Quaternion rotation;
@@ -242,50 +247,11 @@ public class RobotController : MonoBehaviour
         DistanceAndRotationFromTarget(target, targetRot, angles, minAngles, maxAngles, basePos, baseRot, rotAxes, transAxes, startOffsets, out distancePenalty, out rotationPenalty);
 
         return
-            distancePenalty / 2f *1f+
-            rotationPenalty * 1f;
+            distancePenalty+
+            rotationPenalty*3f;
     }
 
-    
 
-    //public float PartialGradient(Vector3 target, Quaternion targetRot, double[] angles, int i)
-    //{
-    //    // Saves the angle,
-    //    // it will be restored later
-    //    float angle = (float) angles[i];
-
-    //    // Gradient : [F(x+SamplingDistance) - F(x)] / h
-    //    float f_x = ErrorFunction(target, targetRot, angles);
-
-    //    angles[i] += SamplingDistance;
-    //    float f_x_plus_d = ErrorFunction(target, targetRot, angles);
-
-    //    float gradient = (f_x_plus_d - f_x) / SamplingDistance;
-
-    //    // Restores
-    //    angles[i] = angle;
-
-    //    return gradient;
-    //}
-
-    //public void InverseKinematics(Vector3 target, Quaternion targetRot, double[] angles)
-    //{
-    //    if (ErrorFunction(target, targetRot, angles) < DistanceThreshold)
-    //        return;
-
-    //    for (int i = Joints.Length - 1; i >= 0; i--)
-    //    {
-    //        // Gradient descent
-    //        // Update : Solution -= LearningRate * Gradient
-    //        float gradient = PartialGradient(target, targetRot, angles, i);
-    //        angles[i] -= LearningRate * gradient;
-
-    //        angles[i] = Mathf.Clamp((float)angles[i], Joints[i].GetComponent<SimpleRobotJoint>().minVal * 360, Joints[i].GetComponent<SimpleRobotJoint>().maxVal * 360);
-
-    //        if (ErrorFunction(target, targetRot, angles) < DistanceThreshold)
-    //            return;
-    //    }
-    //}
 }
 
 public struct IKJob : IJob
@@ -307,7 +273,7 @@ public struct IKJob : IJob
     public void Execute()
     {
         NelderMeadSimplex solver = new NelderMeadSimplex(jobConvergenceTolerance, jobMaxIterations);
-
+        
         var V = Vector<double>.Build;
         var meJob = this;
         var f1 = new Func<Vector<double>, double>(angleVec => RobotController.ErrorFunction(meJob.targetPos, meJob.targetRot, angleVec.ToArray(), meJob.jobAngleMins.ToArray(), meJob.jobAngleMaxes.ToArray(), meJob.jobBasePos, meJob.jobBaseRot, meJob.jobRotAxes.ToArray(), meJob.jobTransAxes.ToArray(), meJob.jobStartOffsets.ToArray()));
@@ -327,7 +293,7 @@ public struct IKJob : IJob
                     MinimizationResult result2;
                     try
                     {
-                        result2 = solver.FindMinimum(obj, V.DenseOfArray(jobAngles.ToArray()) + (V.Random(jobAngles.Length) * (i + 1) * 30));
+                        result2 = solver.FindMinimum(obj, V.DenseOfArray(jobAngles.ToArray()) + (V.Random(jobAngles.Length) * (i + 1) * (i + 1) * (i + 1)));
                         if (result2 != null && result2.FunctionInfoAtMinimum.Value < result.FunctionInfoAtMinimum.Value)
                         {
                             result = result2;
@@ -335,7 +301,7 @@ public struct IKJob : IJob
                     }
                     catch (MaximumIterationsException e)
                     {
-                        //Debug.Log(e);
+                        Debug.Log(e);
                     }
                 }
                 else
@@ -348,7 +314,7 @@ public struct IKJob : IJob
         }
         catch (MaximumIterationsException e)
         {
-            //Debug.Log(e);
+            Debug.Log(e);
         }
 
     }
